@@ -11,10 +11,12 @@ const UUID PhyphoxBLE::configCharacteristicUUID = UUID(phyphoxBleConfigCharacter
 
 char PhyphoxBLE::name[50] = "";
 
+int PhyphoxBLE::activeConnections = 0;
 
 Thread PhyphoxBLE::bleEventThread;
 Thread PhyphoxBLE::transferExpThread;
 
+uint8_t PhyphoxBLE::macAddress[6] = {0};
 uint8_t PhyphoxBLE::data_package[20] = {0};
 uint8_t PhyphoxBLE::config_package[CONFIGSIZE] = {0};
 
@@ -60,13 +62,14 @@ void PhyphoxBleEventHandler::onDisconnectionComplete(const ble::DisconnectionCom
 	//if(printer)
 	//	printer -> println("Disconnection");
 	//#endif
+    PhyphoxBLE::activeConnections-=1;
 	ble.gap().startAdvertising(ble::LEGACY_ADVERTISING_HANDLE);
 }
 
 void PhyphoxBleEventHandler::onConnectionComplete(const ble::ConnectionCompleteEvent &event)
 {
 
-    
+    PhyphoxBLE::activeConnections+=1;
 	//#ifndef NDEBUG
 	//if(printer)
 	//	printer -> println("Connection with device");
@@ -191,7 +194,7 @@ void PhyphoxBLE::bleInitComplete(BLE::InitializationCompleteCallbackContext* par
 	ble::AdvertisingDataBuilder adv_data_builder(_adv_buffer);
 	ble::AdvertisingParameters adv_parameters(ble::advertising_type_t::CONNECTABLE_UNDIRECTED, ble::adv_interval_t(ble::millisecond_t(1000)));
 	adv_data_builder.setFlags();
-    adv_data_builder.setLocalServiceList(mbed::make_Span(&phyphoxExperimentServiceUUID, 1));
+    adv_data_builder.setLocalServiceList(mbed::make_Span(&phyphoxDataServiceUUID, 1));  //changed for test "phyphoxExperimentServiceUUID"
     ble_error_t error = adv_data_builder.setName(name);
 
 
@@ -259,6 +262,16 @@ void PhyphoxBLE::start(const char* DEVICE_NAME, uint8_t* exp_pointer, size_t len
   	transferExpThread.start(callback(&transferQueue, &EventQueue::dispatch_forever));
 	ble.onEventsToProcess(PhyphoxBLE::schedule_ble_events);
 	ble.init(PhyphoxBLE::bleInitComplete);
+
+    ble.gap().enablePrivacy(false);
+
+
+    ble::own_address_type_t addr_type;
+    ble::address_t address;
+    
+    ble.gap().getAddress(addr_type, address);
+
+    memcpy(&macAddress[0],address.data(),6);
 }
 
 void PhyphoxBLE::start(uint8_t* exp_pointer, size_t len) {
