@@ -121,11 +121,13 @@ class PhyphoxBLE
     PhyphoxBLE::fast.connectionSupervisionTimeout = 0x0014;
     */
 
-    
+    static int activeConnections;
 	static uint8_t EXPARRAY[2000];// block some storage
 	static size_t expLen; //try o avoid this maybe use std::array or std::vector
 
 	static void (*configHandler)();
+
+    static uint8_t macAddress[6];
 
     static void poll();
     static void poll(int timeout);
